@@ -3,10 +3,18 @@ const ArrayList = std.ArrayList;
 const parseInt = std.fmt.parseInt;
 
 pub fn main() !void {
+    try first();
+    try second();
+    try third();
+}
+
+// using stdlib
+pub fn first() !void {
     const file = try std.fs.cwd().openFile("input/1.txt", .{});
     defer file.close();
 
-    const allocator = std.heap.page_allocator;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
 
     const file_size = try file.getEndPos();
     const buffer = try allocator.alloc(u8, file_size);
@@ -41,37 +49,51 @@ pub fn main() !void {
     }
 
     std.debug.print("Part 2: {}\n", .{cnt});
+}
 
-    // Trying without stdlib
+// without stdlib, manual buffering
+pub fn second() !void {
+    const file = try std.fs.cwd().openFile("input/1.txt", .{});
+    defer file.close();
 
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    const file_size = try file.getEndPos();
     var i: usize = 0;
     var nrlines: usize = 0;
+
+    const buffer = try allocator.alloc(u8, file_size);
+    defer allocator.free(buffer);
+
+    _ = try file.readAll(buffer);
+
     while (i < file_size) {
         if (buffer[i] == '\n') nrlines += 1;
         i += 1;
     }
 
-    var arr = try allocator.alloc(u64, nrlines);
+    var arr = try allocator.alloc(usize, nrlines);
     defer allocator.free(arr);
 
-    var cnt2: usize = 0;
+    var cnt: usize = 0;
     i = 0;
     while (i < file_size) {
         if (i >= file_size or buffer[i] == '\n') {
             i += 1;
-            cnt2 += 1;
+            cnt += 1;
             continue;
         }
 
-        arr[cnt2] = 0;
+        arr[cnt] = 0;
         while (i < file_size and buffer[i] != '\n') {
-            arr[cnt2] = arr[cnt2] * 10 + (buffer[i] - '0');
+            arr[cnt] = arr[cnt] * 10 + (buffer[i] - '0');
             i += 1;
         }
     }
 
     cnt = 0;
-    cnt2 = 0;
+    var cnt2: usize = 0;
     for (1..nrlines) |idx| {
         if (arr[idx - 1] < arr[idx])
             cnt += 1;
@@ -83,13 +105,10 @@ pub fn main() !void {
     }
     std.debug.print("Part 1: {}\n", .{cnt});
     std.debug.print("Part 2: {}\n", .{cnt2});
-
-    extreme() catch |err| {
-        std.debug.print("Error: {}\n", .{err});
-    };
 }
 
-pub fn extreme() !void {
+// without heap, pure stream
+pub fn third() !void {
     const file = try std.fs.cwd().openFile("input/1.txt", .{});
     defer file.close();
 
@@ -97,7 +116,7 @@ pub fn extreme() !void {
     var buf_reader = reader.reader();
 
     var prev: ?u32 = null;
-    var window = [4]?u32 {null, null, null, null};
+    var window = [4]?u32{ null, null, null, null };
     var idx: usize = 0;
     var part1: usize = 0;
     var part2: usize = 0;
